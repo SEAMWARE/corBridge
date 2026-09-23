@@ -21,6 +21,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-#define CORBRIDGE_VERSION "0.2.0"
+#define CORBRIDGE_VERSION "0.3.0"
 
 #endif  // CORBRIDGE_VERSION_H_
