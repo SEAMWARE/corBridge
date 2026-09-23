@@ -27,6 +27,7 @@
 #include "kargs/KArg.h"                               // KArg
 
 #include "corBridge/BridgeBroker.h"                   // BridgeBroker, BRIDGE_*
+#include "corBridge/BridgeServer.h"                   // BridgeServer
 
 
 
@@ -95,18 +96,68 @@ typedef enum BridgeDirection
 // contract that already names services and actions, and what lets a plugin for
 // a one-directional transport simply not have a publish().
 //
-// ⭐ The struct is APPEND-ONLY across revisions (see BRIDGE_ABI_VERSION). The
-// service and action entry points are deliberately absent rather than reserved:
-// appending them when their semantics are settled is safe precisely because the
-// broker owns the allocation, and inventing their signatures now - before a
-// single goal has been carried end to end - would be guessing in a header that
-// external plugins compile against.
+// ⭐ The struct is APPEND-ONLY across revisions (see BRIDGE_ABI_VERSION), which
+// is what let this header name services and actions from the outset while
+// implementing neither. serviceInvoke() was appended in ABI 2, once the shape
+// of an invocation had been carried end to end; the action entry points stay
+// absent rather than reserved on the same terms, because a goal has not.
+//
+// ⚠⚠ APPEND-ONLY IS SAFE IN ONE DIRECTION ONLY, WHICH IS WHY abiVersion IS AN
+// IN-OUT FIELD. See the handshake on it below.
+//
+//   an OLDER PLUGIN with a newer host - safe on its own, and it is the case the
+//   policy was written for. The plugin fills in the slots it knows, the rest
+//   are left at the zero the host memset them to, and NULL already means "not
+//   supported".
+//
+//   a NEWER PLUGIN with an older host - would NOT be safe without the
+//   handshake. The HOST allocates this struct, at the size its own header says,
+//   and bridgeRegister() then writes whatever slots the PLUGIN's header has. A
+//   plugin built against ABI 2 given an ABI 1 host would write two pointers
+//   past the end of the host's struct - into the next element of the host's
+//   bridges[] array, or past it - and there is no check the HOST could add
+//   afterwards, because the damage is done by the time bridgeRegister returns.
+//
+// So the plugin has to know, before it writes anything, how much room it has.
+// That is the one thing it cannot be told by a parameter - bridgeRegister's
+// signature is fixed - and it is why the handshake runs through a field that
+// has existed since ABI 1.
 //
 typedef struct BridgeDriver
 {
   const char*  alias;                                 // "dds", "mqtt", "opcua"
   const char*  version;                               // the plugin's own version string
-  int          abiVersion;                            // BRIDGE_ABI_VERSION the PLUGIN was built with
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // abiVersion - IN: the HOST's. OUT: the PLUGIN's.
+  //
+  // ⭐ ONE FIELD, TWO DIRECTIONS, AND IT HAS TO BE THIS FIELD. The handshake
+  // needs somewhere to happen that exists in EVERY revision of this struct,
+  // including the oldest one a host might have been built against - and an
+  // appended field is by definition not that. abiVersion is the only member
+  // whose meaning is the same question on both sides; all that differs is who
+  // is answering it.
+  //
+  // The protocol, in full:
+  //
+  //   1. the host zeroes the struct and writes ITS OWN BRIDGE_ABI_VERSION here
+  //   2. the host calls bridgeRegister()
+  //   3. the plugin READS it, and fills in no slot the host is too old to have
+  //   4. the plugin OVERWRITES it with its own, which is what the host reports
+  //      in GET /version and compares against its own to log a mismatch
+  //
+  // ⚠ ZERO MEANS A HOST FROM BEFORE THE HANDSHAKE, not "ABI 0". Such a host
+  // memset the struct and called straight in, so the safe reading of a zero is
+  // 1 - the revision that existed when that was all there was.
+  //
+  // A plugin older than the handshake simply overwrites the field in step 3,
+  // which is exactly what it did before and is why nothing had to change on
+  // that side.
+  //
+  int          abiVersion;
+
   KArg*        args;                                   // plugin CLI options, spliced into the broker's arg table (NULL if none)
 
 
@@ -194,6 +245,54 @@ typedef struct BridgeDriver
   // see the note on the plain-data seam in BridgeBroker.h.
   //
   const char* (*versionInfo)(void);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // serviceInvoke - send a request to a service endpoint, ABI 2
+  //
+  // ⭐ NOT publish(). A topic and a service are two different things and giving
+  // them one entry point would give them one return code, one trace line and
+  // one set of failure modes, which they do not share: publishing is finished
+  // when the payload is on the wire, while invoking has only started there -
+  // something answers, or nothing does and that is its own outcome.
+  //
+  // The reply is NOT returned here. It comes back later, through the broker's
+  // sampleQualifiedIn(), on the same endpoint - so this call does not block a
+  // broker thread on a foreign peer's latency, and a slow service cannot hold
+  // an NGSI-LD request open.
+  //
+  // ⭐ Which means the plugin OWNS THE CORRELATION. The transport hands back
+  // some request handle; matching the reply to it, and to the endpoint it
+  // belongs to, happens inside the plugin. Nothing about it crosses the seam,
+  // because the broker has nothing to do with it: the endpoint is what
+  // identifies the attribute, and that is all the broker needs.
+  //
+  // Called on a BROKER thread, inside the request that wrote the attribute, and
+  // must not block - as publish().
+  //
+  // @param json  the request payload. Borrowed, as everywhere on this seam.
+  //
+  // @return BRIDGE_OK when the request is on its way, BRIDGE_NOT_FOUND when no
+  //         peer serves the endpoint, BRIDGE_BAD_INPUT when the payload does
+  //         not fit the service's request type.
+  //
+  int (*serviceInvoke)(const char* endpoint, const char* json);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // serverIface - the peer side of this transport, ABI 2
+  //
+  // ⛔ THE BROKER MUST NOT CALL THIS. It is here because a bridge plugin is
+  // loaded by hosts other than the broker - the functional test client is one -
+  // and a request/reply transport cannot be tested without something on the
+  // domain that answers. See BridgeServer.h for why that is a separate struct
+  // rather than more slots here.
+  //
+  // @return the plugin's own static interface, or NULL when it cannot serve.
+  //
+  const BridgeServer* (*serverIface)(void);
 } BridgeDriver;
 
 

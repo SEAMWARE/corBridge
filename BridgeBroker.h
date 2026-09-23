@@ -43,7 +43,7 @@
 // encoding (see BridgeDriver.h). Refusing to load would turn a working
 // deployment red for a capability it never asked for.
 //
-#define BRIDGE_ABI_VERSION  1
+#define BRIDGE_ABI_VERSION  2
 
 
 
@@ -157,6 +157,57 @@ typedef struct BridgeBroker
                       int         lineNo,
                       const char* funcName,
                       const char* msg);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // sampleQualifiedIn - a foreign endpoint produced something that is not a
+  //                     plain sample
+  //
+  // A topic delivers a value and the value is the whole of it. A request/reply
+  // exchange delivers a reply, and a goal delivers feedback, a status and a
+  // result - several kinds of thing, arriving over time, all belonging to the
+  // one attribute the endpoint is bound to, and several of them belonging to
+  // one particular exchange among many in flight.
+  //
+  // So this is sampleIn with two qualifiers, and it is ONE entry point rather
+  // than five:
+  //
+  // ⭐ THE ENVELOPE IS NAMED BY THE PLUGIN, WHICH IS THE POINT. How a reply or
+  // a piece of feedback appears in NGSI-LD is a convention of the transport
+  // world it came from, and the next release of the API is expected to replace
+  // it with a first-class concept. A broker that spelled those names itself
+  // would have to be changed when that happens, and would carry one transport's
+  // vocabulary in its core for as long as it did not. Here the broker knows
+  // only "a sub-attribute of this name, on this instance" - which is NGSI-LD it
+  // already speaks - and the convention lives entirely behind the seam, in the
+  // one place that is allowed to know what transport it is.
+  //
+  // @param datasetId    which instance of the attribute this belongs to, or
+  //                     NULL for the default instance. This is how N
+  //                     simultaneous exchanges on one endpoint stay apart:
+  //                     N instances of one attribute is what datasetId means.
+  // @param subAttrName  the sub-attribute to put the payload in, or NULL to
+  //                     make it the attribute's own value. EXACTLY as the
+  //                     plugin spells it - it is quoted, not adopted, the same
+  //                     way an endpoint's own name is.
+  //
+  // Everything else - the threading, what the broker does with the write, the
+  // meaning of the return codes - is as sampleIn(), which is the degenerate
+  // case of this one with both qualifiers NULL.
+  //
+  // ⚠ ADDED IN ABI 2, and this is the direction the additive policy does NOT
+  // cover by itself: the broker allocates this struct, so a plugin built
+  // against 2 and loaded by a broker built against 1 would read past the end of
+  // it. A plugin must check brokerP->abiVersion before calling this, exactly as
+  // the broker checks a driver's slot for NULL.
+  //
+  int (*sampleQualifiedIn)(const char* bridgeName,
+                           const char* endpoint,
+                           const char* datasetId,
+                           const char* subAttrName,
+                           const char* json,
+                           int64_t     publishTime);
 } BridgeBroker;
 
 #endif  // CORBRIDGE_BRIDGEBROKER_H_
