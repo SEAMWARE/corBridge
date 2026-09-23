@@ -22,7 +22,7 @@
 // limitations under the License.
 //
 
-#include <stdint.h>                                   // int64_t
+#include <stdint.h>                                   // int64_t, uint64_t
 
 #include "kargs/KArg.h"                               // KArg
 
@@ -99,8 +99,9 @@ typedef enum BridgeDirection
 // ⭐ The struct is APPEND-ONLY across revisions (see BRIDGE_ABI_VERSION), which
 // is what let this header name services and actions from the outset while
 // implementing neither. serviceInvoke() was appended in ABI 2, once the shape
-// of an invocation had been carried end to end; the action entry points stay
-// absent rather than reserved on the same terms, because a goal has not.
+// of an invocation had been carried end to end, and serviceInvokeTracked() in
+// ABI 3, once somebody had to wait for one; the action entry points stay absent
+// rather than reserved on the same terms, because a goal has not been carried.
 //
 // ⚠⚠ APPEND-ONLY IS SAFE IN ONE DIRECTION ONLY, WHICH IS WHY abiVersion IS AN
 // IN-OUT FIELD. See the handshake on it below.
@@ -268,6 +269,9 @@ typedef struct BridgeDriver
   // because the broker has nothing to do with it: the endpoint is what
   // identifies the attribute, and that is all the broker needs.
   //
+  // That holds for as long as nobody waits for the answer. A request that does
+  // (ddsSync) goes through serviceInvokeTracked() instead - see there.
+  //
   // Called on a BROKER thread, inside the request that wrote the attribute, and
   // must not block - as publish().
   //
@@ -293,6 +297,39 @@ typedef struct BridgeDriver
   // @return the plugin's own static interface, or NULL when it cannot serve.
   //
   const BridgeServer* (*serverIface)(void);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // serviceInvokeTracked - serviceInvoke(), for a request somebody waits for,
+  //                        ABI 3
+  //
+  // The same request, sent the same way, except that its reply must come back
+  // through brokerP->replyIn() carrying TOKEN - so that the NGSI-LD request
+  // waiting for it (ddsSync) gets its own reply and no other.
+  //
+  // ⭐ THE BROKER CHOOSES THE TOKEN, and that is the whole reason this is not
+  // serviceInvoke() returning one. The broker has to be waiting for the reply
+  // BEFORE it can arrive, and a reply can arrive before this call returns - a
+  // transport may answer on another thread at once, and one that answers
+  // inline (the loopback bridge) does so before returning at all. A token the
+  // plugin handed back would be known too late to wait on. So the broker
+  // registers the token, then calls this, and the plugin keeps it next to its
+  // own transport's request handle until the reply comes.
+  //
+  // The token is opaque to the plugin: never 0, unique among the requests in
+  // flight, and to be handed back unchanged.
+  //
+  // Called on a BROKER thread and must not block - the broker does the waiting,
+  // not the plugin.
+  //
+  // A plugin without it (NULL) is a plugin whose services cannot be waited for,
+  // and the broker says so to the request that asked. serviceInvoke() stays the
+  // entry point for everything else.
+  //
+  // @return as serviceInvoke()
+  //
+  int (*serviceInvokeTracked)(const char* endpoint, const char* json, uint64_t token);
 } BridgeDriver;
 
 

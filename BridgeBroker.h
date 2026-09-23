@@ -22,7 +22,7 @@
 // limitations under the License.
 //
 
-#include <stdint.h>                                   // int64_t
+#include <stdint.h>                                   // int64_t, uint64_t
 
 
 
@@ -43,7 +43,7 @@
 // encoding (see BridgeDriver.h). Refusing to load would turn a working
 // deployment red for a capability it never asked for.
 //
-#define BRIDGE_ABI_VERSION  2
+#define BRIDGE_ABI_VERSION  3
 
 
 
@@ -208,6 +208,48 @@ typedef struct BridgeBroker
                            const char* subAttrName,
                            const char* json,
                            int64_t     publishTime);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // replyIn - the reply to a request sent with serviceInvokeTracked(), ABI 3
+  //
+  // sampleQualifiedIn() plus the one thing it deliberately leaves out: WHICH
+  // request this answers. The token is the one the broker passed to
+  // serviceInvokeTracked() - the plugin hands it back unchanged, and does not
+  // interpret it.
+  //
+  // It exists because a request can be WAITED FOR (ddsSync): the NGSI-LD
+  // request that wrote the attribute holds its response until this reply
+  // arrives, and it must get its own reply and no other - not a late answer to
+  // an earlier invocation of the same endpoint, and not one that belongs to a
+  // request that has already given up. Only a token can tell those apart; the
+  // endpoint cannot.
+  //
+  // What the broker does with it:
+  //   - a request is waiting on the token  -> the reply is handed to it, and
+  //                                           written with the request's own
+  //                                           write, not here
+  //   - the request gave up (timed out)    -> the reply is dropped: that request
+  //                                           answered with an error and wrote
+  //                                           nothing, and must stay that way
+  //   - anything else                      -> exactly as sampleQualifiedIn()
+  //
+  // So a plugin may send EVERY reply through here, tracked or not (token 0 for
+  // an untracked one), once the host has it.
+  //
+  // ⚠ ADDED IN ABI 3. A plugin must check brokerP->abiVersion >= 3 AND that
+  // this pointer is not NULL before calling it - a host that is not the broker
+  // (the functional test client) is built against this header too, and fills
+  // in only what it needs. Otherwise it uses sampleQualifiedIn(), as in ABI 2.
+  //
+  int (*replyIn)(const char* bridgeName,
+                 const char* endpoint,
+                 uint64_t    token,
+                 const char* datasetId,
+                 const char* subAttrName,
+                 const char* json,
+                 int64_t     publishTime);
 } BridgeBroker;
 
 #endif  // CORBRIDGE_BRIDGEBROKER_H_
