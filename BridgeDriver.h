@@ -46,10 +46,10 @@
 //
 // BridgeChannelKind - what shape of interaction an endpoint has
 //
-// Declared in full from the outset although only BridgeChannelTopic is
-// implemented today. A Channel carries its kind from the day it is created, so
-// that adding services and actions later is a matter of filling in vtable slots
-// rather than migrating stored objects that never said what they were.
+// Declared in full from the outset, before services (ABI 2) and actions (ABI 4)
+// were carried. A Channel carries its kind from the day it is created, so that
+// adding them was a matter of filling in vtable slots rather than migrating
+// stored objects that never said what they were.
 //
 //   Topic    - a value is published and consumed. One direction per sample.
 //   Service  - a request is sent and exactly one reply comes back.
@@ -99,9 +99,9 @@ typedef enum BridgeDirection
 // ⭐ The struct is APPEND-ONLY across revisions (see BRIDGE_ABI_VERSION), which
 // is what let this header name services and actions from the outset while
 // implementing neither. serviceInvoke() was appended in ABI 2, once the shape
-// of an invocation had been carried end to end, and serviceInvokeTracked() in
-// ABI 3, once somebody had to wait for one; the action entry points stay absent
-// rather than reserved on the same terms, because a goal has not been carried.
+// of an invocation had been carried end to end, serviceInvokeTracked() in ABI 3,
+// once somebody had to wait for one, and the action entry points in ABI 4, once
+// a goal was carried.
 //
 // ⚠⚠ APPEND-ONLY IS SAFE IN ONE DIRECTION ONLY, WHICH IS WHY abiVersion IS AN
 // IN-OUT FIELD. See the handshake on it below.
@@ -330,6 +330,51 @@ typedef struct BridgeDriver
   // @return as serviceInvoke()
   //
   int (*serviceInvokeTracked)(const char* endpoint, const char* json, uint64_t token);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // actionGoalSend - send a goal to an action endpoint, ABI 4
+  //
+  // Everything that then happens to the goal comes back through
+  // brokerP->goalEventIn() carrying TOKEN, ending with exactly one event marked
+  // final - see there for what the plugin guarantees about it.
+  //
+  // ⭐ THE BROKER CHOOSES THE TOKEN, for the reason serviceInvokeTracked() gives:
+  // a transport may report on the goal before this call returns, and the broker
+  // must already know the token by then. The transport's own goal id is not
+  // returned here for the same reason - it arrives with the events.
+  //
+  // Called on a BROKER thread and must not block.
+  //
+  // @param json   the goal request. Borrowed, as everywhere on this seam.
+  // @param token  opaque to the plugin: never 0, unique among the goals in
+  //               flight, handed back unchanged
+  //
+  // @return BRIDGE_OK when the goal is on its way, BRIDGE_NOT_FOUND when no
+  //         server serves the endpoint, BRIDGE_BAD_INPUT when the payload does
+  //         not fit the action's goal type. On anything but BRIDGE_OK no event
+  //         will come for the token.
+  //
+  int (*actionGoalSend)(const char* endpoint, const char* json, uint64_t token);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // actionGoalCancel - ask for a goal to be cancelled, ABI 4
+  //
+  // By TOKEN, not by the transport's goal id: a cancel may be asked for before
+  // the first event has told the broker that id, and the plugin already keeps
+  // the two side by side.
+  //
+  // Asking is all this does. Whether the goal stops - and when - comes back as
+  // events, like everything else about it; a server may refuse, and a goal may
+  // finish on its own first.
+  //
+  // @return BRIDGE_OK when the request is on its way, BRIDGE_NOT_FOUND when the
+  //         token is not a goal in flight
+  //
+  int (*actionGoalCancel)(const char* endpoint, uint64_t token);
 } BridgeDriver;
 
 
