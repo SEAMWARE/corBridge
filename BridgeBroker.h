@@ -22,6 +22,7 @@
 // limitations under the License.
 //
 
+#include <stdbool.h>                                  // bool
 #include <stdint.h>                                   // int64_t, uint64_t
 
 
@@ -43,7 +44,7 @@
 // encoding (see BridgeDriver.h). Refusing to load would turn a working
 // deployment red for a capability it never asked for.
 //
-#define BRIDGE_ABI_VERSION  3
+#define BRIDGE_ABI_VERSION  4
 
 
 
@@ -92,6 +93,34 @@
 //      network loop - which the broker did not create and whose thread-locals it
 //      has not initialised. Handing a kalloc buffer across that line would be a
 //      bug the day it was written.
+// -----------------------------------------------------------------------------
+//
+// BridgeGoalState - where a goal sent with actionGoalSend() stands, ABI 4
+//
+// The seam's own vocabulary, not a transport's: a plugin maps its transport's
+// codes onto these. A code that is not a goal state - a cancel request the
+// server refused, say - is not mapped: the goal's state is simply unchanged,
+// and the event carries the transport's message in its payload.
+//
+// The last five are TERMINAL. A timeout of the transport's own is FAILED.
+//
+typedef enum BridgeGoalState
+{
+  BridgeGoalUnknown    = 0,    // the plugin has not been told yet
+  BridgeGoalAccepted   = 1,
+  BridgeGoalExecuting  = 2,
+  BridgeGoalCanceling  = 3,    // a cancel was accepted; the goal has not stopped yet
+  BridgeGoalSucceeded  = 4,
+  BridgeGoalCanceled   = 5,
+  BridgeGoalAborted    = 6,    // the server gave up on it
+  BridgeGoalRejected   = 7,    // never accepted - so no result will ever come
+  BridgeGoalFailed     = 8     // the transport lost it (a timeout, a vanished server)
+} BridgeGoalState;
+
+#define BRIDGE_GOAL_TERMINAL(state)  ((state) >= BridgeGoalSucceeded)
+
+
+
 //
 // ⭐ A BRIDGE KNOWS NOTHING ABOUT ENTITIES. It carries bytes to and from an
 // endpoint; which entity attribute an endpoint corresponds to is a Channel, and
@@ -250,6 +279,63 @@ typedef struct BridgeBroker
                  const char* subAttrName,
                  const char* json,
                  int64_t     publishTime);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // goalEventIn - something happened to a goal sent with actionGoalSend(), ABI 4
+  //
+  // A goal is not answered once, like a request: it is accepted or refused, it
+  // runs and reports feedback, it changes state, and it ends with a result. All
+  // of that comes through here, one call per event, each carrying the token the
+  // broker chose when it sent the goal.
+  //
+  // ⭐ ONE CALL CARRIES final, AND IT IS THE LAST ONE FOR ITS TOKEN - the
+  // plugin guarantees both. A transport may well deliver a goal's terminal
+  // status and its result in either order, on different threads; the plugin
+  // holds back whichever comes first until the other is there, and sends the
+  // later of the two with final set. A goal that can have no result (Rejected)
+  // is final at once. Only the plugin can know which terminal states are
+  // followed by a result, because that is a rule of its transport - so the
+  // buffering is there, and the broker can end a goal on final without ever
+  // meeting an event for it afterwards.
+  //
+  // @param token        the broker's, from actionGoalSend(), handed back
+  //                     unchanged
+  // @param goalId       the transport's own id for the goal (a UUID, for DDS),
+  //                     as text. Opaque to the broker; there for tracing and
+  //                     for showing to a user.
+  // @param goalAlias    a URI-shaped name the PLUGIN gives the goal - the
+  //                     envelope again, as datasetId is to sampleQualifiedIn().
+  //                     What the broker makes of it depends on how it models
+  //                     goals, which is why the seam does not call it anything
+  //                     more specific. NULL when the plugin has none.
+  // @param state        the goal's BridgeGoalState as of this event
+  // @param final        nothing more will come for this token
+  // @param subAttrName  the envelope: the sub-attribute the payload goes in,
+  //                     exactly as the plugin spells it. NULL when the event is
+  //                     the state change alone and has no payload.
+  // @param json         the payload (feedback, status, result), or NULL
+  // @param publishTime  as sampleIn()
+  //
+  // An event for a token the broker does not know (a goal it already ended, or
+  // one another host sent) is dropped with BRIDGE_NOT_FOUND.
+  //
+  // Called from a plugin thread, as sampleIn().
+  //
+  // ⚠ ADDED IN ABI 4. A plugin must check brokerP->abiVersion >= 4 AND that
+  // this pointer is not NULL before calling it, as for replyIn().
+  //
+  int (*goalEventIn)(const char* bridgeName,
+                     const char* endpoint,
+                     uint64_t    token,
+                     const char* goalId,
+                     const char* goalAlias,
+                     int         state,
+                     bool        final,
+                     const char* subAttrName,
+                     const char* json,
+                     int64_t     publishTime);
 } BridgeBroker;
 
 #endif  // CORBRIDGE_BRIDGEBROKER_H_
