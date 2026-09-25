@@ -44,7 +44,7 @@
 // encoding (see BridgeDriver.h). Refusing to load would turn a working
 // deployment red for a capability it never asked for.
 //
-#define BRIDGE_ABI_VERSION  5
+#define BRIDGE_ABI_VERSION  6
 
 
 
@@ -383,6 +383,68 @@ typedef struct BridgeBroker
                          int         part,
                          const char* subAttrName,
                          const char* json,
+                         int64_t     publishTime);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // THE META OBJECT, ABI 6 - what the transport says ABOUT a payload
+  //
+  // Every transport carries curiosities of its own beside the payload: DDS an
+  // instance handle, the publishing participant, the data type's name; MQTT a
+  // retain flag, a QoS; OPC-UA a status code, a source timestamp. A client of
+  // that transport may want them, and the broker cannot know what they are
+  // called or mean.
+  //
+  // So the plugin hands them over as a JSON object - meta - and the broker
+  // makes each member a Property sub-attribute, named as the plugin spelled it,
+  // holding the member's value as it is:
+  //
+  //   meta { "instanceHandleId": "01.0f...", "ddsDataType": "Pose" }
+  //   ->   "instanceHandleId": { "type": "Property", "value": "01.0f..." },
+  //        "ddsDataType":      { "type": "Property", "value": "Pose" }
+  //
+  // on WHATEVER the payload lands in: the attribute itself for a sample, the
+  // sub-attribute (subAttrName) for a reply or a goal event. The broker never
+  // interprets a member - the names are quoted, not adopted, as endpoints and
+  // sub-attribute names are. NULL, or an empty object: nothing is added.
+  //
+  // Three upcalls take it, each the one before it plus meta; a plugin calls
+  // the meta form when the host has it, the plain one otherwise.
+  //
+  // ⚠ ADDED IN ABI 6. A plugin must check brokerP->abiVersion >= 6 AND that
+  // the pointer is not NULL before calling any of the three.
+  //
+
+  // sampleMetaIn - sampleIn, plus meta
+  int (*sampleMetaIn)(const char* bridgeName,
+                      const char* endpoint,
+                      const char* json,
+                      const char* meta,
+                      int64_t     publishTime);
+
+  // replyMetaIn - replyIn, plus meta (on the sub-attribute the reply goes in)
+  int (*replyMetaIn)(const char* bridgeName,
+                     const char* endpoint,
+                     uint64_t    token,
+                     const char* datasetId,
+                     const char* subAttrName,
+                     const char* json,
+                     const char* meta,
+                     int64_t     publishTime);
+
+  // goalEventMetaIn - goalEventPartIn, plus meta (on the sub-attribute the event goes in)
+  int (*goalEventMetaIn)(const char* bridgeName,
+                         const char* endpoint,
+                         uint64_t    token,
+                         const char* goalId,
+                         const char* goalAlias,
+                         int         state,
+                         bool        final,
+                         int         part,
+                         const char* subAttrName,
+                         const char* json,
+                         const char* meta,
                          int64_t     publishTime);
 } BridgeBroker;
 
