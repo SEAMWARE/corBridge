@@ -44,7 +44,7 @@
 // encoding (see BridgeDriver.h). Refusing to load would turn a working
 // deployment red for a capability it never asked for.
 //
-#define BRIDGE_ABI_VERSION  4
+#define BRIDGE_ABI_VERSION  5
 
 
 
@@ -116,6 +116,26 @@ typedef enum BridgeGoalState
   BridgeGoalRejected   = 7,    // never accepted - so no result will ever come
   BridgeGoalFailed     = 8     // the transport lost it (a timeout, a vanished server)
 } BridgeGoalState;
+
+
+
+// -----------------------------------------------------------------------------
+//
+// BridgeGoalPart - which part of a goal an event's payload is, ABI 5
+//
+// A goal reports three kinds of thing - its status, its feedback while it runs,
+// and its result - and each plugin names them in its own transport's words
+// ("feedback", "ddsActionFeedback", ...). The broker needs to know WHICH one a
+// payload is without knowing those words, to show a goal the same way whatever
+// carries it: goalFeedback, goalResult. The plugin knows; this is it saying so.
+//
+typedef enum BridgeGoalPart
+{
+  BridgeGoalPartNone      = 0,    // no payload - the state change alone
+  BridgeGoalPartStatus    = 1,
+  BridgeGoalPartFeedback  = 2,
+  BridgeGoalPartResult    = 3
+} BridgeGoalPart;
 
 #define BRIDGE_GOAL_TERMINAL(state)  ((state) >= BridgeGoalSucceeded)
 
@@ -336,6 +356,34 @@ typedef struct BridgeBroker
                      const char* subAttrName,
                      const char* json,
                      int64_t     publishTime);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // goalEventPartIn - goalEventIn, saying which PART of the goal the payload is, ABI 5
+  //
+  // Everything goalEventIn says, plus part (a BridgeGoalPart): whether json is
+  // the goal's status, its feedback or its result. The sub-attribute stays the
+  // plugin's to name; part is what lets the broker present a goal without
+  // knowing that name - goalFeedback and goalResult on the goal resource.
+  //
+  // A plugin built against ABI 5 calls this INSTEAD of goalEventIn when the
+  // host has it, and goalEventIn otherwise.
+  //
+  // ⚠ ADDED IN ABI 5. A plugin must check brokerP->abiVersion >= 5 AND that
+  // this pointer is not NULL before calling it.
+  //
+  int (*goalEventPartIn)(const char* bridgeName,
+                         const char* endpoint,
+                         uint64_t    token,
+                         const char* goalId,
+                         const char* goalAlias,
+                         int         state,
+                         bool        final,
+                         int         part,
+                         const char* subAttrName,
+                         const char* json,
+                         int64_t     publishTime);
 } BridgeBroker;
 
 #endif  // CORBRIDGE_BRIDGEBROKER_H_
