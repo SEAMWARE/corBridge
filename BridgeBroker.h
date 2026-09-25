@@ -44,7 +44,7 @@
 // encoding (see BridgeDriver.h). Refusing to load would turn a working
 // deployment red for a capability it never asked for.
 //
-#define BRIDGE_ABI_VERSION  6
+#define BRIDGE_ABI_VERSION  7
 
 
 
@@ -442,6 +442,43 @@ typedef struct BridgeBroker
                          int         state,
                          bool        final,
                          int         part,
+                         const char* subAttrName,
+                         const char* json,
+                         const char* meta,
+                         int64_t     publishTime);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // replyExchangeIn - a reply, and the request it answers, ABI 7
+  //
+  // replyMetaIn() plus the REQUEST: what was asked, under a sub-attribute of
+  // its own, written in the SAME write as the reply - one change of the
+  // attribute, one notification, showing the whole exchange. A request/reply
+  // transport knows things about the request the broker does not (DDS: the
+  // request id, the request's data type), and a client reading the answer may
+  // want to see what it answers.
+  //
+  // @param requestSubAttrName  the sub-attribute the request goes in ("request")
+  // @param requestJson         what was sent, as JSON text
+  // @param requestMeta         the transport's meta about the request (see ABI 6), or NULL
+  // @param requestTime         when it was sent, nanoseconds since the epoch - 0: not said
+  //
+  // Everything else - the reply's sub-attribute, the token, what the broker
+  // does when a request waits for it - is exactly replyMetaIn(). A NULL
+  // requestSubAttrName or requestJson makes it replyMetaIn().
+  //
+  // ⚠ ADDED IN ABI 7. A plugin must check brokerP->abiVersion >= 7 AND that
+  // this pointer is not NULL before calling it.
+  //
+  int (*replyExchangeIn)(const char* bridgeName,
+                         const char* endpoint,
+                         uint64_t    token,
+                         const char* datasetId,
+                         const char* requestSubAttrName,
+                         const char* requestJson,
+                         const char* requestMeta,
+                         int64_t     requestTime,
                          const char* subAttrName,
                          const char* json,
                          const char* meta,
