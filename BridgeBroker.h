@@ -44,7 +44,7 @@
 // encoding (see BridgeDriver.h). Refusing to load would turn a working
 // deployment red for a capability it never asked for.
 //
-#define BRIDGE_ABI_VERSION  7
+#define BRIDGE_ABI_VERSION  8
 
 
 
@@ -483,6 +483,41 @@ typedef struct BridgeBroker
                          const char* json,
                          const char* meta,
                          int64_t     publishTime);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // endpointDiscoveredIn - the transport has found a service or an action nobody configured, ABI 8
+  //
+  // A transport that discovers what is on its bus (DDS: the Enabler announces
+  // every service and action server it finds) tells the broker about the ones
+  // no Channel carries. The broker may then carry it itself: a Channel of its
+  // own, on the bridge's catch-all entity, with the endpoint as the attribute -
+  // as Orion-LD does with the services and actions it discovers - and hands it
+  // back through channelAdd() like any other. Without a catch-all the broker
+  // ignores it.
+  //
+  // The plugin must be able to CARRY what it reports: whatever it needs to send
+  // a request or a goal there (DDS: the types, as discovered) it keeps before
+  // it calls this. Topics are not reported - an unclaimed sample already finds
+  // the catch-all on its own.
+  //
+  // Called on a thread of the plugin's own, never from inside a callback of the
+  // transport's that holds its locks: the broker calls back into the plugin
+  // (channelAdd) before it returns.
+  //
+  // @param kind  a BridgeChannelKind (BridgeDriver.h): BridgeChannelService or BridgeChannelAction
+  //
+  // @return BRIDGE_OK when a Channel carries the endpoint now (it did already,
+  //         or the broker made one), BRIDGE_NOT_FOUND when the broker left it
+  //         alone (no catch-all), BRIDGE_BAD_INPUT for a kind it does not take.
+  //
+  // ⚠ ADDED IN ABI 8. A plugin must check brokerP->abiVersion >= 8 AND that
+  // this pointer is not NULL before calling it.
+  //
+  int (*endpointDiscoveredIn)(const char* bridgeName,
+                              const char* endpoint,
+                              int         kind);
 } BridgeBroker;
 
 #endif  // CORBRIDGE_BRIDGEBROKER_H_
