@@ -62,7 +62,7 @@
 
 // -----------------------------------------------------------------------------
 //
-// Log severities - mirror ktrace's, so the broker's implementation is a switch
+// Log severities - mirror corLog's, so the broker's implementation is a switch
 //
 #define BRIDGE_LOG_ERROR     0
 #define BRIDGE_LOG_WARNING   1
@@ -198,7 +198,7 @@ typedef struct BridgeBroker
   // library's logging straight through without reformatting.
   //
   // ⚠ The file/line are the PLUGIN's. A broker-side implementation must pass
-  // them on rather than capture its own - see the ktrace helpers, where the
+  // them on rather than capture its own - see the corLog helpers, where the
   // macro form would record the helper's own position instead.
   //
   void (*logFunction)(int         severity,           // BRIDGE_LOG_*
