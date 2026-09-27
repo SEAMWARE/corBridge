@@ -24,7 +24,7 @@
 
 #include <stdint.h>                                   // int64_t, uint64_t
 
-#include "kargs/KArg.h"                               // KArg
+#include "corArgs/CorArg.h"                           // CorArg
 
 #include "corBridge/BridgeBroker.h"                   // BridgeBroker, BRIDGE_*
 #include "corBridge/BridgeServer.h"                   // BridgeServer
@@ -159,7 +159,7 @@ typedef struct BridgeDriver
   //
   int          abiVersion;
 
-  KArg*        args;                                   // plugin CLI options, spliced into the broker's arg table (NULL if none)
+  CorArg*      args;                                   // plugin CLI options, spliced into the broker's arg table (NULL if none)
 
 
   // ---------------------------------------------------------------------------
@@ -240,7 +240,7 @@ typedef struct BridgeDriver
   // Returns a static string, e.g. "dds 0.1.0 (Fast DDS 3.3.0, DDS Enabler
   // 1.2.0)". It is copied into the response of GET /version.
   //
-  // ⭐ Unlike the API-plugin contract, which hands the plugin a KAlloc and a
+  // ⭐ Unlike the API-plugin contract, which hands the plugin a CorAlloc and a
   // KjNode to fill, this returns a plain string. A bridge plugin is not
   // necessarily a C program and must not be required to build a kjson tree -
   // see the note on the plain-data seam in BridgeBroker.h.

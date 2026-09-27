@@ -31,8 +31,8 @@ LIB_DEPS      = $(LIB_SOURCES:c=d)
 #
 # Nothing to link. corBridge is the CONTRACT a bridge plugin satisfies: two
 # headers of struct and enum, and a handful of enum-to-string helpers whose only
-# call is strcmp. KArg.h is included for the type of BridgeDriver's args member,
-# which is a pointer - no kargs code is reached, so no kargs library is linked.
+# call is strcmp. CorArg.h is included for the type of BridgeDriver's args member,
+# which is a pointer - no corArgs code is reached, so no corArgs library is linked.
 #
 SO_LDFLAGS    =
 SO_LIBS       =

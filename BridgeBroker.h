@@ -81,7 +81,7 @@
 // by any other means.
 //
 // ⭐ EVERY PARAMETER HERE IS PLAIN DATA - const char*, int64_t. No KjNode, no
-// KAlloc, no NGSI-LD type crosses this line, and that is deliberate on two
+// CorAlloc, no NGSI-LD type crosses this line, and that is deliberate on two
 // counts:
 //
 //   1. A bridge plugin may be written in a language that is not C. The DDS
