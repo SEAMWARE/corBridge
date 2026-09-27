@@ -23,7 +23,7 @@ A bridge `.so` exports exactly one symbol, `bridgeRegister`.
 ## Two properties worth knowing before writing a plugin
 
 **The seam is plain data.** `const char*` and `int64_t`, in both directions. No
-`KjNode`, no `KAlloc`, no NGSI-LD type crosses it. That is what lets a plugin be
+`KjNode`, no `CorAlloc`, no NGSI-LD type crosses it. That is what lets a plugin be
 written in something other than C — the DDS bridge is C++, because the library
 it wraps has an API of `std::string` and `std::shared_ptr` that cannot be
 reached from C at all — and it is what keeps the broker's allocator away from
@@ -50,8 +50,8 @@ logged, not refused.
 make
 ```
 
-No dependencies. `KArg.h` is included for the type of one pointer member; no
-kargs code is reached and no library is linked.
+No dependencies. `CorArg.h` is included for the type of one pointer member; no
+corArgs code is reached and no library is linked.
 
 ---
 
