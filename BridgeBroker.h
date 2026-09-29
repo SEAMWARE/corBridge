@@ -487,13 +487,16 @@ typedef struct BridgeBroker
 
   // ---------------------------------------------------------------------------
   //
-  // endpointDiscoveredIn - the transport has found a service or an action nobody configured, ABI 8
+  // endpointDiscoveredIn - the transport has found a service or an action, ABI 8
   //
   // A transport that discovers what is on its bus (DDS: the Enabler announces
-  // every service and action server it finds) tells the broker about the ones
-  // no Channel carries. The broker may then carry it itself: a Channel of its
-  // own, on the bridge's catch-all entity, with the endpoint as the attribute -
-  // as Orion-LD does with the services and actions it discovers - and hands it
+  // every service and action server it finds) tells the broker about each one -
+  // those a Channel already carries (configured) as well as those nobody
+  // configured. For a carried one the broker marks its Channel discovered
+  // (GET /channels: endpointDiscovered) and returns BRIDGE_OK. For one no
+  // Channel carries, the broker may carry it itself: a Channel of its own, on
+  // the bridge's catch-all entity, with the endpoint as the attribute - as
+  // Orion-LD does with the services and actions it discovers - and hands it
   // back through channelAdd() like any other. Without a catch-all the broker
   // ignores it.
   //
