@@ -22,6 +22,7 @@
 // limitations under the License.
 //
 
+#include <stdbool.h>                                  // bool
 #include <stdint.h>                                   // int64_t, uint64_t
 
 #include "corArgs/CorArg.h"                           // CorArg
@@ -395,6 +396,43 @@ typedef struct BridgeDriver
   // getting channelAdd, and a Channel configured with channelInfo then says so in the log.
   //
   int (*channelAddInfo)(const char* endpoint, BridgeChannelKind kind, BridgeDirection direction, const char* info);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // notifySchemes - the URI schemes this bridge delivers NOTIFICATIONS to, ABI 10
+  //
+  // Comma-separated, no "://": "mqtt,mqtts". NULL for a bridge that delivers none. A Subscription
+  // whose notification.endpoint.uri has one of these schemes is notified through notify() below,
+  // and one whose scheme no loaded bridge claims is refused when it is created - not accepted and
+  // then failed on every notification.
+  //
+  const char* notifySchemes;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // notify - deliver one notification, ABI 10
+  //
+  // A notification is not a Channel: its address is a whole URI the SUBSCRIBER chose
+  // (mqtt://user:pw@host:1883/topic), so every call may name a different server, and nothing about
+  // it is configured. The plugin owns the transport and nothing else.
+  //
+  // @param url          the Subscription's notification.endpoint.uri, one of notifySchemes
+  // @param payload      the complete message, built by the broker (for MQTT the TS 104 243
+  //                     { "metadata": ..., "body": ... } envelope) - sent as it is
+  // @param info         notification.endpoint.notifierInfo as JSON text - an array of
+  //                     {"key": "...", "value": "..."} - or NULL. Transport settings (MQTT-QoS,
+  //                     MQTT-Version) are the plugin's to read; the broker has validated them.
+  // @param tlsInsecure  accept an endpoint's self-signed certificate (--insecureNotif)
+  //
+  // BLOCKING, and called on the broker thread that sends the notification: it returns once the
+  // message has been handed over (QoS 0) or acknowledged (QoS 1/2), or has failed. The broker
+  // counts the outcome on the Subscription (timesSent / timesFailed) exactly as for HTTP.
+  //
+  // @return BRIDGE_OK, BRIDGE_BAD_INPUT (a URI it cannot use), or BRIDGE_ERR
+  //
+  int (*notify)(const char* url, const char* payload, const char* info, bool tlsInsecure);
 } BridgeDriver;
 
 
