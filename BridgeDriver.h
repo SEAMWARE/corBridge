@@ -375,6 +375,26 @@ typedef struct BridgeDriver
   //         token is not a goal in flight
   //
   int (*actionGoalCancel)(const char* endpoint, uint64_t token);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // channelAddInfo - channelAdd, plus what the transport needs to know ABOUT the endpoint, ABI 9
+  //
+  // The endpoint is the Channel's address and its identity - samples find their Channel by it - so it
+  // carries WHERE the value is and nothing else. How to read it (a Modbus register's type, word order
+  // and scale), and how to carry it (a poll period, a deadband, an MQTT QoS) is channelInfo: key-value
+  // pairs, as NGSI-LD's receiverInfo / notifierInfo / contextSourceInfo are for an endpoint of theirs.
+  // Changing a scale factor is then not a different Channel.
+  //
+  // @param info  the Channel's channelInfo as JSON text - an array of {"key": "...", "value": "..."},
+  //              both strings - or NULL when it has none. The broker never interprets a key; a key the
+  //              plugin does not know is the plugin's to reject (BRIDGE_BAD_INPUT).
+  //
+  // The broker calls this INSTEAD of channelAdd when the plugin has it; a plugin without it keeps
+  // getting channelAdd, and a Channel configured with channelInfo then says so in the log.
+  //
+  int (*channelAddInfo)(const char* endpoint, BridgeChannelKind kind, BridgeDirection direction, const char* info);
 } BridgeDriver;
 
 
