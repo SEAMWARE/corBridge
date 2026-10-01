@@ -44,7 +44,7 @@
 // encoding (see BridgeDriver.h). Refusing to load would turn a working
 // deployment red for a capability it never asked for.
 //
-#define BRIDGE_ABI_VERSION  9                       // 9: BridgeDriver.channelAddInfo
+#define BRIDGE_ABI_VERSION  10                      // 10: BridgeDriver.notifySchemes + notify
 
 
 
