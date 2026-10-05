@@ -433,6 +433,50 @@ typedef struct BridgeDriver
   // @return BRIDGE_OK, BRIDGE_BAD_INPUT (a URI it cannot use), or BRIDGE_ERR
   //
   int (*notify)(const char* url, const char* payload, const char* info, bool tlsInsecure);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // serviceSchemes - the URI schemes of the SERVICES this bridge executes, ABI 11
+  //
+  // Comma-separated, no "://": "dds", "modbus". NULL for a bridge that executes none. A Service
+  // Registration (Service Execution) whose endpoint has one of these schemes is executed by this
+  // bridge - the broker is the service's executor - and one whose scheme no loaded bridge claims is
+  // refused when it is registered.
+  //
+  const char* serviceSchemes;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // serviceExecute - start one Service Execution, ABI 11
+  //
+  // @param url          the Service Registration's endpoint - one of serviceSchemes; which service
+  //                     and how to reach it is the plugin's to read (dds://<domain>/<service>)
+  // @param executionId  the execution's id: every serviceUpdateIn about it names it
+  // @param inputJson    the execution's input, a JSON object - the entity's "id" and "type" in it,
+  //                     as an HTTP executor receives them
+  //
+  // NON-BLOCKING: returns once the execution is handed over, and reports through
+  // BridgeBroker.serviceUpdateIn - from any thread, at any time after. A synchronous service is the
+  // broker's business (it waits for the outcome); the plugin does the same either way.
+  //
+  // @return BRIDGE_OK (accepted), BRIDGE_NOT_FOUND (no such service), BRIDGE_BAD_INPUT (the input
+  //         does not fit the service), BRIDGE_ERR
+  //
+  int (*serviceExecute)(const char* url, const char* executionId, const char* inputJson);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // serviceCancel - cancel a running Service Execution, ABI 11
+  //
+  // BLOCKING until the transport has answered (DDS: the cancel's response).
+  //
+  // @return BRIDGE_OK (cancelled - no serviceUpdateIn is expected after it), BRIDGE_UNSUPPORTED (it
+  //         cannot be pre-empted: it goes on), BRIDGE_NOT_FOUND (not running), BRIDGE_ERR
+  //
+  int (*serviceCancel)(const char* url, const char* executionId);
 } BridgeDriver;
 
 

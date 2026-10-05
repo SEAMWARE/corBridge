@@ -44,7 +44,7 @@
 // encoding (see BridgeDriver.h). Refusing to load would turn a working
 // deployment red for a capability it never asked for.
 //
-#define BRIDGE_ABI_VERSION  10                      // 10: BridgeDriver.notifySchemes + notify
+#define BRIDGE_ABI_VERSION  11                      // 11: Service Execution - BridgeDriver.serviceSchemes + serviceExecute + serviceCancel, BridgeBroker.serviceUpdateIn
 
 
 
@@ -521,6 +521,36 @@ typedef struct BridgeBroker
   int (*endpointDiscoveredIn)(const char* bridgeName,
                               const char* endpoint,
                               int         kind);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // serviceUpdateIn - the progress and the outcome of a Service Execution, ABI 11
+  //
+  // A bridge that executes services (BridgeDriver.serviceExecute) reports each execution through
+  // this, from any thread of its own, as often as it has something to say: progress while it runs,
+  // then once its outcome.
+  //
+  // @param executionId   the id serviceExecute was given
+  // @param status        "executing", "completed" or "failed" - or NULL: no change (progress only)
+  // @param progressJson  the execution's progress, any JSON (DDS: an action's feedback), or NULL
+  // @param outputJson    its result, any JSON (DDS: a service's reply, an action's result), or NULL
+  // @param errorJson     a failure's ProblemDetails (JSON object), or NULL - the broker makes one
+  //
+  // "completed" and "failed" end the execution: nothing about it is accepted after them.
+  //
+  // @return BRIDGE_OK, BRIDGE_NOT_FOUND (an execution the broker does not know, or has ended),
+  //         BRIDGE_BAD_INPUT (a status it does not take, or JSON it cannot parse)
+  //
+  // ⚠ ADDED IN ABI 11. A plugin must check brokerP->abiVersion >= 11 AND that this pointer is not
+  // NULL before calling it.
+  //
+  int (*serviceUpdateIn)(const char* bridgeName,
+                         const char* executionId,
+                         const char* status,
+                         const char* progressJson,
+                         const char* outputJson,
+                         const char* errorJson);
 } BridgeBroker;
 
 #endif  // CORBRIDGE_BRIDGEBROKER_H_
