@@ -77,8 +77,29 @@
 // BridgeBroker - what the BROKER offers a bridge plugin
 //
 // The broker fills this in and hands it to the plugin's init(). It is the only
-// way into the broker from a plugin; a bridge must not resolve broker symbols
-// by any other means.
+// way into the broker's NGSI-LD side from a plugin: values, replies, goal events,
+// discovered endpoints and Service Execution updates all arrive through these
+// slots, and a plugin calls no function of the broker's own components (the
+// bridge, service-routine, DB and TRoE code) directly.
+//
+// ⭐ WHICH BROKER SYMBOLS A PLUGIN MAY USE. The broker executable exports its
+// symbols (linked rdynamic, the Cor-Libs whole-archived), and a plugin is
+// dlopen'ed with RTLD_NOW, so a C or C++ plugin may call the Cor-Libs the broker
+// is built with - corLog (COR_E, COR_W, COR_V, COR_I, COR_T), corAlloc, corJson,
+// corTree - without linking them. The bundled loopback bridge and the MQTT,
+// Modbus and DDS bridges all do: they log with the COR_* macros and parse their
+// configuration with corJson and corTree, in a corAlloc buffer of their own.
+// logFunction (below) is for forwarding a transport library's own log sink.
+//
+// ⚠ BRIDGE_ABI_VERSION COVERS THIS STRUCT, BridgeDriver AND BridgeServer, AND
+// NOTHING ELSE. It says nothing about the Cor-Lib functions a plugin resolves
+// from the broker: their signatures and the layout of their types are those of
+// the headers the broker was built with. A plugin that uses them must be built
+// against the same Cor-Lib sources as the broker that loads it (for a packaged
+// broker: the source tarball of the same version). A function the broker lacks
+// fails the dlopen; a changed signature or struct layout is not detected. A
+// plugin that uses only the slots of these three structs depends on nothing but
+// BRIDGE_ABI_VERSION.
 //
 // ⭐ EVERY PARAMETER HERE IS PLAIN DATA - const char*, int64_t. No KjNode, no
 // CorAlloc, no NGSI-LD type crosses this line, and that is deliberate on two

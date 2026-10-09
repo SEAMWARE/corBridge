@@ -147,8 +147,9 @@ typedef struct BridgeDriver
   //   1. the host zeroes the struct and writes ITS OWN BRIDGE_ABI_VERSION here
   //   2. the host calls bridgeRegister()
   //   3. the plugin READS it, and fills in no slot the host is too old to have
-  //   4. the plugin OVERWRITES it with its own, which is what the host reports
-  //      in GET /version and compares against its own to log a mismatch
+  //   4. the plugin OVERWRITES it with its own, which the host compares against
+  //      its own after bridgeRegister() returns, logging a mismatch (INFO);
+  //      it is not shown in GET /version
   //
   // ⚠ ZERO MEANS A HOST FROM BEFORE THE HANDSHAKE, not "ABI 0". Such a host
   // memset the struct and called straight in, so the safe reading of a zero is
@@ -171,9 +172,14 @@ typedef struct BridgeDriver
   // subsystems are up, so that a sample arriving on the first callback has
   // somewhere to land.
   //
-  // @param configFile  path to the plugin's own configuration file, or NULL.
-  //                    The format belongs to the plugin - the broker neither
-  //                    parses nor validates it.
+  // @param configFile  path to the bridge configuration file - the one named
+  //                    by --bridgeConfig, or else bridges.json in
+  //                    /opt/seamware/etc ($SEAMWARE_ETC_DIR) when that file
+  //                    exists - or NULL when there is none. ONE file for all
+  //                    bridges: the broker reads the Channels from each
+  //                    plugin's "ngsild" member; everything else in the
+  //                    plugin's member (keyed by its alias) belongs to the
+  //                    plugin, and the broker does not interpret it.
   // @param brokerP     the broker's side of the seam. The plugin must keep this
   //                    pointer; it stays valid until close() returns.
   //
@@ -198,8 +204,10 @@ typedef struct BridgeDriver
   //
   // channelAdd - start carrying an endpoint
   //
-  // Called once per Channel: at startup for Channels read from configuration,
-  // and again at runtime whenever one is created.
+  // Called once per Channel: at startup for Channels read from configuration
+  // (channelAddInfo instead, ABI 9, when the plugin has it), and at runtime
+  // when the broker creates a Channel for an endpoint the plugin reported
+  // through endpointDiscoveredIn() (ABI 8).
   //
   // For BridgeDirectionIn (or Both) the plugin subscribes, and from then on
   // calls brokerP->sampleIn() as data arrives. For Out it need only make sure
@@ -214,6 +222,11 @@ typedef struct BridgeDriver
   // ---------------------------------------------------------------------------
   //
   // channelDel - stop carrying an endpoint
+  //
+  // ⚠ THE BROKER DOES NOT CALL THIS TODAY. Channels come from the
+  // configuration file (and, through endpointDiscoveredIn(), from discovered
+  // endpoints) and none is removed while the broker runs: there is no Channel
+  // deletion over the API yet. The slot is for that. A plugin may leave it NULL.
   //
   // @return BRIDGE_OK, or BRIDGE_NOT_FOUND if the endpoint was never added.
   //
