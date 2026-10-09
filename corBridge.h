@@ -36,8 +36,11 @@ extern const char* corBridgeVersion(void);
 //
 // corBridgeAbiVersion - return the contract revision this build was made with
 //
-// The broker reports this alongside each loaded plugin's own abiVersion, so a
-// mismatch is visible in GET /version rather than only in the log at startup.
+// The same value as BRIDGE_ABI_VERSION in the BridgeBroker.h this library was
+// compiled with. The broker does not call it today: it compares its own
+// BRIDGE_ABI_VERSION with each plugin's BridgeDriver.abiVersion at load time and
+// logs a mismatch (INFO). GET /version shows each loaded bridge's versionInfo()
+// string only - neither the broker's bridge ABI nor a plugin's abiVersion.
 //
 extern int corBridgeAbiVersion(void);
 
