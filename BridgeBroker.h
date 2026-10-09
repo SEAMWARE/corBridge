@@ -44,7 +44,7 @@
 // encoding (see BridgeDriver.h). Refusing to load would turn a working
 // deployment red for a capability it never asked for.
 //
-#define BRIDGE_ABI_VERSION  11                      // 11: Service Execution - BridgeDriver.serviceSchemes + serviceExecute + serviceCancel, BridgeBroker.serviceUpdateIn
+#define BRIDGE_ABI_VERSION  12                      // 12: BridgeBroker.channelStatusIn - the plugin says whether a Channel carries, and why not
 
 
 
@@ -138,6 +138,23 @@ typedef enum BridgeGoalPart
 } BridgeGoalPart;
 
 #define BRIDGE_GOAL_TERMINAL(state)  ((state) >= BridgeGoalSucceeded)
+
+
+
+// -----------------------------------------------------------------------------
+//
+// BridgeChannelStatus - whether a Channel carries, as the plugin sees it, ABI 12
+//
+// The broker's own two words for a Channel (GET /ngsi-ld/v1/channels: status):
+//
+//   Available  the endpoint is carried
+//   Dormant    it is not - the endpoint is not there, the peer refused it, the peer cannot be reached
+//
+typedef enum BridgeChannelStatus
+{
+  BridgeChannelAvailable = 0,
+  BridgeChannelDormant   = 1
+} BridgeChannelStatus;
 
 
 
@@ -551,6 +568,36 @@ typedef struct BridgeBroker
                          const char* progressJson,
                          const char* outputJson,
                          const char* errorJson);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // channelStatusIn - whether a Channel carries, and why not, ABI 12
+  //
+  // channelAddInfo() can refuse an endpoint only while it is being called, and the broker then says
+  // why in its own words ("its address or channelInfo does not fit the transport"). What a transport
+  // learns LATER, it reports through this: a resource the peer says is not there, a peer that cannot
+  // be reached, a peer that is back. The broker shows it on the Channel - status and statusReason on
+  // GET /ngsi-ld/v1/channels - and nothing else: a dormant Channel stays configured, and samples on
+  // its endpoint are still taken.
+  //
+  // Called from any thread of the plugin's own, and from inside channelAddInfo(): the reason given
+  // there is the one the broker shows when channelAddInfo() then refuses the endpoint.
+  //
+  // @param status  a BridgeChannelStatus
+  // @param reason  one line, for a person - NULL for none. Copied before the call returns. Never a
+  //                credential: it is shown over the API.
+  //
+  // @return BRIDGE_OK, BRIDGE_NOT_FOUND (no Channel of this bridge carries the endpoint),
+  //         BRIDGE_BAD_INPUT (a status the broker does not know)
+  //
+  // ⚠ ADDED IN ABI 12. A plugin must check brokerP->abiVersion >= 12 AND that this pointer is not
+  // NULL before calling it.
+  //
+  int (*channelStatusIn)(const char* bridgeName,
+                         const char* endpoint,
+                         int         status,
+                         const char* reason);
 } BridgeBroker;
 
 #endif  // CORBRIDGE_BRIDGEBROKER_H_
