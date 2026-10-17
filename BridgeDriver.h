@@ -505,9 +505,12 @@ typedef struct BridgeDriver
   // plugin cannot change it.
   //
   // Called on a BROKER thread, before anything of the write is sent or stored - once per attribute of the
-  // write that a Channel or a DataChannel of this bridge maps. Must not block.
+  // write that a Channel, a DataChannel or an AssetChannel of this bridge maps. Must not block.
   //
-  // @param endpoint      the channel's endpoint (its channelTarget)
+  // @param endpoint      where the value lives at the source: the channel's endpoint (its channelTarget) -
+  //                      for an AssetChannel's attribute, the node it was made from (its "id" in the model
+  //                      the bridge handed over), or the model's root for one made of no one node (a
+  //                      Relationship, a container's)
   // @param attribute     the attribute's name, EXPANDED
   // @param json          the value as the client wrote it, as the application's own JSON (what publish()
   //                      would be given). Borrowed, as everywhere on this seam.
