@@ -516,7 +516,11 @@ typedef struct BridgeDriver
   //
   // @return BRIDGE_OK (may be written) or BRIDGE_BAD_INPUT (refused: the attribute is not written, and the
   //         client gets 400 with reasonBuf - or, among several attributes, that attribute is left out and
-  //         reported, 207). Anything else is taken as BRIDGE_OK: a check that fails does not block writes.
+  //         reported, 207). Anything else is a check that FAILED, and a failed check is a refusal too -
+  //         503, the bridge could not check the value (reasonBuf, if the plugin wrote one, says why).
+  //
+  // Only the attribute is refused, never the write around it: the other attributes, and in a batch the
+  // other entities, go on.
   //
   int (*payloadCheck)(const char* endpoint, const char* attribute, const char* json, char* reasonBuf, int reasonBufLen);
 } BridgeDriver;
