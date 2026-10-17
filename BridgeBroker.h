@@ -44,7 +44,7 @@
 // encoding (see BridgeDriver.h). Refusing to load would turn a working
 // deployment red for a capability it never asked for.
 //
-#define BRIDGE_ABI_VERSION  13                      // 13: BridgeDriver.payloadCheck - the plugin may refuse a client's write to an attribute its channels map
+#define BRIDGE_ABI_VERSION  14                      // 14: BridgeDriver.inventory - what the transport can carry, for a mapping tool
 
 
 

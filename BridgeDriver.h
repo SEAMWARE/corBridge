@@ -526,6 +526,34 @@ typedef struct BridgeDriver
   // other entities, go on.
   //
   int (*payloadCheck)(const char* endpoint, const char* attribute, const char* json, char* reasonBuf, int reasonBufLen);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // inventory - what the transport can carry, as JSON: for a mapping tool to choose from, ABI 14
+  //
+  // A mapping tool (c3's Configure) shows what is there - an OPC UA server's address space, the topics of a
+  // DDS network - and the user picks what becomes Channels and AssetChannels. The broker asks for it on an
+  // admin request (GET /admin/bridges/{bridge}/inventory) and hands the text over as it is.
+  //
+  // @param from       where to start, in the transport's own terms (OPC UA: a NodeId); NULL: the transport's
+  //                   own top (OPC UA: the Objects folder)
+  // @param depth      how many levels below 'from' (0: 'from' alone) - a plugin may cap it; what is below the
+  //                   last level is only said to be there, so a tool can ask for it next
+  // @param timeoutMs  how long the call may wait for the transport
+  // @param jsonP      OUT: the inventory - malloc'd JSON text; the broker frees it (free)
+  // @param errBuf     on anything but BRIDGE_OK, why - in the plugin's own words
+  //
+  // The shape is the transport's, and its documentation says it. OPC UA: the neutral node tree a model is
+  // handed over in, with what a mapping needs besides it (a Variable's dataType, whether it is writable;
+  // hasChildren where the depth cut it). DDS: { "topics", "services", "actions" } as the DDS discovery
+  // tools write it.
+  //
+  // Called on a BROKER thread, for an admin request - it may block, up to timeoutMs.
+  //
+  // @return BRIDGE_OK, BRIDGE_NOT_FOUND (no such 'from'), BRIDGE_ERR (not connected, timed out, ...)
+  //
+  int (*inventory)(const char* from, int depth, int timeoutMs, char** jsonP, char* errBuf, int errBufLen);
 } BridgeDriver;
 
 
