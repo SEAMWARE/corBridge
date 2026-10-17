@@ -490,6 +490,35 @@ typedef struct BridgeDriver
   //         cannot be pre-empted: it goes on), BRIDGE_NOT_FOUND (not running), BRIDGE_ERR
   //
   int (*serviceCancel)(const char* url, const char* executionId);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // payloadCheck - may a client write this value to an attribute one of this bridge's channels maps? ABI 13
+  //
+  // For a source whose rules the broker would otherwise not see: an inbound-only channel, whose client
+  // writes never reach the source, or a model's types (an OPC UA DataType, an AAS valueType). A bridge
+  // whose transport already refuses a value that does not fit (a Channel writes transport first) has no
+  // need of it: the work would be done twice. NULL: no check, and it costs nothing.
+  //
+  // REFUSE ONLY. The answer is yes or no; the broker never changes the value on the plugin's say, and the
+  // plugin cannot change it.
+  //
+  // Called on a BROKER thread, before anything of the write is sent or stored - once per attribute of the
+  // write that a Channel or a DataChannel of this bridge maps. Must not block.
+  //
+  // @param endpoint      the channel's endpoint (its channelTarget)
+  // @param attribute     the attribute's name, EXPANDED
+  // @param json          the value as the client wrote it, as the application's own JSON (what publish()
+  //                      would be given). Borrowed, as everywhere on this seam.
+  // @param reasonBuf     a refusal says why here, in the plugin's own words - it reaches the client
+  // @param reasonBufLen  its size
+  //
+  // @return BRIDGE_OK (may be written) or BRIDGE_BAD_INPUT (refused: the attribute is not written, and the
+  //         client gets 400 with reasonBuf - or, among several attributes, that attribute is left out and
+  //         reported, 207). Anything else is taken as BRIDGE_OK: a check that fails does not block writes.
+  //
+  int (*payloadCheck)(const char* endpoint, const char* attribute, const char* json, char* reasonBuf, int reasonBufLen);
 } BridgeDriver;
 
 
