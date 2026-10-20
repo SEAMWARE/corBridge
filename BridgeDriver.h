@@ -68,6 +68,27 @@ typedef enum BridgeChannelKind
 
 // -----------------------------------------------------------------------------
 //
+// BridgeChannelType - which of the broker's channel types an endpoint is, ABI 15 (channelTypedAdd)
+//
+//   Channel       one endpoint, one attribute of one entity - a sample is the attribute's value
+//   DataChannel   one endpoint whose samples are RECORDS, each made into entities by the broker's mapping
+//   AssetChannel  one endpoint whose samples are a MODEL (a node tree) and its values
+//
+// The broker maps; the plugin only carries. What the type tells a plugin is what to send on the endpoint -
+// a value, a record, a model - and whether it carries that type at all (an IoT Agent bridge carries
+// DataChannels only).
+//
+typedef enum BridgeChannelType
+{
+  BridgeChannelTypeChannel      = 0,
+  BridgeChannelTypeDataChannel  = 1,
+  BridgeChannelTypeAssetChannel = 2
+} BridgeChannelType;
+
+
+
+// -----------------------------------------------------------------------------
+//
 // BridgeDirection - which way values move on a Channel
 //
 //   In    - the foreign endpoint produces, the broker consumes
@@ -554,6 +575,23 @@ typedef struct BridgeDriver
   // @return BRIDGE_OK, BRIDGE_NOT_FOUND (no such 'from'), BRIDGE_ERR (not connected, timed out, ...)
   //
   int (*inventory)(const char* from, int depth, int timeoutMs, char** jsonP, char* errBuf, int errBufLen);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // channelTypedAdd - channelAddInfo, plus which channel type the endpoint is, ABI 15
+  //
+  // channelAddInfo hands a Channel, a DataChannel and an AssetChannel over alike - the last two as an
+  // inbound topic - so a plugin cannot tell a Channel's endpoint from a DataChannel's. This says it.
+  //
+  // @param type  BridgeChannelType - Channel, DataChannel or AssetChannel
+  // @param kind, direction, info  as channelAddInfo's. A DataChannel and an AssetChannel are
+  //              BridgeChannelTopic, BridgeDirectionIn
+  //
+  // The broker calls this INSTEAD of channelAddInfo (and channelAdd) when the plugin has it. A type the
+  // plugin does not carry is BRIDGE_UNSUPPORTED - the channel is then dormant, as for any refusal.
+  //
+  int (*channelTypedAdd)(const char* endpoint, BridgeChannelType type, BridgeChannelKind kind, BridgeDirection direction, const char* info);
 } BridgeDriver;
 
 

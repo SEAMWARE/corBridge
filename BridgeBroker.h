@@ -44,7 +44,7 @@
 // encoding (see BridgeDriver.h). Refusing to load would turn a working
 // deployment red for a capability it never asked for.
 //
-#define BRIDGE_ABI_VERSION  14                      // 14: BridgeDriver.inventory - what the transport can carry, for a mapping tool
+#define BRIDGE_ABI_VERSION  15                      // 15: BridgeDriver.channelTypedAdd - which channel type an endpoint is
 
 
 
