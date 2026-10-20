@@ -44,7 +44,7 @@
 // encoding (see BridgeDriver.h). Refusing to load would turn a working
 // deployment red for a capability it never asked for.
 //
-#define BRIDGE_ABI_VERSION  15                      // 15: BridgeDriver.channelTypedAdd - which channel type an endpoint is
+#define BRIDGE_ABI_VERSION  16                      // 16: BridgeBroker.httpListen - a port the broker serves for the plugin
 
 
 
@@ -159,6 +159,46 @@ typedef enum BridgeGoalPart
 } BridgeGoalPart;
 
 #define BRIDGE_GOAL_TERMINAL(state)  ((state) >= BridgeGoalSucceeded)
+
+
+
+// -----------------------------------------------------------------------------
+//
+// BridgeHttpRequest - a request on a port the broker serves for the plugin (httpListen, ABI 16)
+//
+// Everything in it is the broker's and lives until the handler returns: a plugin keeps nothing of it.
+//
+typedef struct BridgeHttpRequest
+{
+  const char*  method;                                // "GET", "POST", ... as the client sent it
+  const char*  path;                                  // percent-decoded, without the query: "/iot/json"
+  const char*  body;                                  // NUL-terminated, "" when none
+  int          bodyLen;
+  int          bodyTooBig;                            // 1: the body was over 1 MB and not read - body is ""
+
+  //
+  // param  - a query parameter, percent-decoded and '+' as a space (as a form, and as libmicrohttpd and
+  //          Express decode it); NULL when absent. Case sensitive.
+  // header - a request header, case-insensitive; NULL when absent
+  //
+  const char* (*param)(const struct BridgeHttpRequest* reqP, const char* key);
+  const char* (*header)(const struct BridgeHttpRequest* reqP, const char* key);
+
+  void*        opaque;                                // the broker's
+} BridgeHttpRequest;
+
+
+
+// -----------------------------------------------------------------------------
+//
+// BridgeHttpHandler - the plugin's answer to a request on its port
+//
+// @param bodyP         OUT: the response body, malloc'd - the broker frees it; NULL for none
+// @param contentTypeP  OUT: its Content-Type, a string that outlives the call; NULL: application/json
+//
+// @return the HTTP status
+//
+typedef int (*BridgeHttpHandler)(const BridgeHttpRequest* reqP, char** bodyP, const char** contentTypeP);
 
 
 
@@ -619,6 +659,33 @@ typedef struct BridgeBroker
                          const char* endpoint,
                          int         status,
                          const char* reason);
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // httpListen - serve a port for the plugin: where a device is the client (an IoT Agent's southbound
+  // port, a webhook a cloud calls back)
+  //
+  // The broker listens on 'port', every IPv4 interface, plain HTTP, and hands each request to 'handler'.
+  // The port is the plugin's alone: no NGSI-LD route, no authentication plugin, nothing of the broker's
+  // API - a plugin calls this only when its configuration names the port.
+  //
+  // Requests are handled one at a time per port, on a thread of the broker's for that port - not a
+  // plugin thread, and not one of the NGSI-LD request threads. A handler may call back into the broker
+  // (sampleIn, serviceUpdateIn) as a plugin thread does.
+  //
+  // Called from init() or later. The broker stops serving a plugin's ports before it calls close(), so
+  // no handler runs once close() has begun.
+  //
+  // @return BRIDGE_OK, BRIDGE_ERR (the port cannot be listened on - in use, no permission; said in the
+  //         broker's log), BRIDGE_BAD_INPUT (port 0, no handler)
+  //
+  // ⚠ ADDED IN ABI 16. A plugin must check brokerP->abiVersion >= 16 AND that this pointer is not NULL
+  // before calling it - NULL also when the broker was built without it (COR_FEATURE_BRIDGE_HTTP_LISTEN).
+  //
+  int (*httpListen)(const char*        bridgeName,
+                    unsigned short     port,
+                    BridgeHttpHandler  handler);
 } BridgeBroker;
 
 #endif  // CORBRIDGE_BRIDGEBROKER_H_

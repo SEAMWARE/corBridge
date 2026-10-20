@@ -13,15 +13,15 @@ this is the *contract* one kind of `.so` must satisfy.
 
 ## The three structs
 
-`BRIDGE_ABI_VERSION` is **15**. Each slot is listed with the revision that added it.
+`BRIDGE_ABI_VERSION` is **16**. Each slot is listed with the revision that added it.
 
 | header | struct | direction | slots |
 |---|---|---|---|
 | `BridgeDriver.h` | `BridgeDriver` | broker → plugin: what the `.so` fills in | `alias`, `version`, `abiVersion`, `args`; ABI 1: `init`, `close`, `channelAdd`, `channelDel`, `publish`, `versionInfo`; ABI 2: `serviceInvoke`, `serverIface`; ABI 3: `serviceInvokeTracked`; ABI 4: `actionGoalSend`, `actionGoalCancel`; ABI 9: `channelAddInfo`; ABI 10: `notifySchemes`, `notify`; ABI 11: `serviceSchemes`, `serviceExecute`, `serviceCancel`; ABI 13: `payloadCheck`; ABI 14: `inventory`; ABI 15: `channelTypedAdd` |
-| `BridgeBroker.h` | `BridgeBroker` | plugin → broker: what the plugin may call | `abiVersion`; ABI 1: `sampleIn`, `logFunction`; ABI 2: `sampleQualifiedIn`; ABI 3: `replyIn`; ABI 4: `goalEventIn`; ABI 5: `goalEventPartIn`; ABI 6: `sampleMetaIn`, `replyMetaIn`, `goalEventMetaIn`; ABI 7: `replyExchangeIn`; ABI 8: `endpointDiscoveredIn`; ABI 11: `serviceUpdateIn`; ABI 12: `channelStatusIn` |
+| `BridgeBroker.h` | `BridgeBroker` | plugin → broker: what the plugin may call | `abiVersion`; ABI 1: `sampleIn`, `logFunction`; ABI 2: `sampleQualifiedIn`; ABI 3: `replyIn`; ABI 4: `goalEventIn`; ABI 5: `goalEventPartIn`; ABI 6: `sampleMetaIn`, `replyMetaIn`, `goalEventMetaIn`; ABI 7: `replyExchangeIn`; ABI 8: `endpointDiscoveredIn`; ABI 11: `serviceUpdateIn`; ABI 12: `channelStatusIn`; ABI 16: `httpListen` (and the types `BridgeHttpRequest`, `BridgeHttpHandler`) |
 | `BridgeServer.h` | `BridgeServer` | the peer side, returned by `serverIface()`: the broker never uses it; the functional test client does | `abiVersion`, `serviceServe`, `serviceUnserve`, `serviceReply` (ABI 2) |
 
-ABI 9, 10, 13, 14 and 15 added nothing to `BridgeBroker`, ABI 12 nothing to `BridgeDriver`. `channelDel` is not called by the
+ABI 9, 10, 13, 14 and 15 added nothing to `BridgeBroker`, ABI 12 and 16 nothing to `BridgeDriver`. `channelDel` is not called by the
 broker today: Channels are never removed while it runs.
 
 A bridge `.so` exports exactly one symbol, `bridgeRegister`.
