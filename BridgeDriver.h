@@ -26,6 +26,7 @@
 #include <stdint.h>                                   // int64_t, uint64_t
 
 #include "corArgs/CorArg.h"                           // CorArg
+#include "corTree/CorNode.h"                          // corNodeLayout - every bridge plugin carries it (corPluginOpen)
 
 #include "corBridge/BridgeBroker.h"                   // BridgeBroker, BRIDGE_*
 #include "corBridge/BridgeServer.h"                   // BridgeServer
