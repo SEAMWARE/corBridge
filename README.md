@@ -24,7 +24,9 @@ this is the *contract* one kind of `.so` must satisfy.
 ABI 9, 10, 13, 14 and 15 added nothing to `BridgeBroker`, ABI 12 and 16 nothing to `BridgeDriver`. `channelDel` is not called by the
 broker today: Channels are never removed while it runs.
 
-A bridge `.so` exports exactly one symbol, `bridgeRegister`.
+A bridge `.so` exports two symbols: `bridgeRegister`, and `corNodeLayout` - weak, defined by
+`corTree/CorNode.h` (included by `BridgeDriver.h`) - which the broker checks when it opens the plugin,
+so a plugin built against another CorNode layout is refused.
 
 ## Two properties worth knowing before writing a plugin
 
@@ -81,8 +83,8 @@ structs depends on `BRIDGE_ABI_VERSION` alone.
 make
 ```
 
-No dependencies. `CorArg.h` is included for the type of one pointer member; no
-corArgs code is reached and no library is linked.
+Headers of two libraries, no library linked: `corArgs/CorArg.h` for the type of one pointer member
+(no corArgs code is reached), and `corTree/CorNode.h` for `corNodeLayout`.
 
 ---
 

@@ -109,8 +109,9 @@ typedef enum BridgeDirection
 //
 // BridgeDriver - the contract a bridge plugin fills in
 //
-// One .so per transport, exporting exactly one symbol: bridgeRegister(). The
-// broker zeroes this struct, calls bridgeRegister() with it, and the plugin
+// One .so per transport. The broker looks for one symbol, bridgeRegister(); the
+// .so exports corNodeLayout too (weak, from corTree/CorNode.h, checked when the
+// plugin is opened). The broker zeroes this struct, calls bridgeRegister() with it, and the plugin
 // fills in what it supports.
 //
 // ⭐ A NULL FUNCTION POINTER MEANS "NOT SUPPORTED" - the same convention the DB
@@ -599,7 +600,7 @@ typedef struct BridgeDriver
 
 // -----------------------------------------------------------------------------
 //
-// BridgeRegisterFunc - the one symbol a bridge .so exports
+// BridgeRegisterFunc - the one symbol the broker looks for in a bridge .so
 //
 // ⚠ A plugin written in C++ must declare it extern "C", or the broker's dlsym
 // for "bridgeRegister" will not find it.

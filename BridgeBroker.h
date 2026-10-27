@@ -573,9 +573,8 @@ typedef struct BridgeBroker
   // configured. For a carried one the broker marks its Channel discovered
   // (GET /channels: endpointDiscovered) and returns BRIDGE_OK. For one no
   // Channel carries, the broker may carry it itself: a Channel of its own, on
-  // the bridge's catch-all entity, with the endpoint as the attribute - as
-  // Orion-LD does with the services and actions it discovers - and hands it
-  // back through channelAdd() like any other. Without a catch-all the broker
+  // the bridge's catch-all entity, with the endpoint as the attribute - and
+  // hands it back through channelAdd() like any other. Without a catch-all the broker
   // ignores it.
   //
   // The plugin must be able to CARRY what it reports: whatever it needs to send
