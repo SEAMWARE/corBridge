@@ -29,10 +29,11 @@ LIB_OBJS      = $(LIB_SOURCES:c=o)
 LIB_DEPS      = $(LIB_SOURCES:c=d)
 
 #
-# Nothing to link. corBridge is the CONTRACT a bridge plugin satisfies: two
+# Nothing to link. corBridge is the CONTRACT a bridge plugin satisfies: three
 # headers of struct and enum, and a handful of enum-to-string helpers whose only
 # call is strcmp. CorArg.h is included for the type of BridgeDriver's args member,
 # which is a pointer - no corArgs code is reached, so no corArgs library is linked.
+# corTree/CorNode.h is included for corNodeLayout (a weak const) - no corTree library either.
 #
 SO_LDFLAGS    =
 SO_LIBS       =
